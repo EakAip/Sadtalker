@@ -16,8 +16,9 @@ pip install -r requirements.txt
 
 ## 下载模型
 ```python
-bash scripts/download_models.sh
+bash scripts/download_models.sh 
 ```
+### 国内下载模型很慢 百度网盘链接：
 
 ## 运行
 ```python
