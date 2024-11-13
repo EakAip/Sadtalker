@@ -21,3 +21,4 @@ av=11.0.0
 safetensors==0.4.3
 tb-nightly
 basicsr==1.4.2
+flask==3.0.2
