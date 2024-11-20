@@ -2,6 +2,8 @@
 
 1.新增模型修改为加速版本
 
+2.新增显存回收，垃圾清理
+
 ## 创建conda环境
 ```python
 conda create -n sadtalker python=3.8
