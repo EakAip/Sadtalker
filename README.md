@@ -1,5 +1,7 @@
 # 数字人合成
 
+1.新增模型修改为加速版本
+
 ## 创建conda环境
 ```python
 conda create -n sadtalker python=3.8
@@ -24,3 +26,4 @@ bash scripts/download_models.sh
 ```python
 nohup python sadtalker_flask.py & tail -f nohup.out
 ```
+
