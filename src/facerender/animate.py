@@ -1,3 +1,5 @@
+# 模型加速版本
+
 import os
 import cv2
 import yaml
@@ -21,7 +23,7 @@ from src.facerender.modules.make_animation import make_animation
 
 from pydub import AudioSegment 
 from src.utils.face_enhancer import enhancer_generator_with_len, enhancer_list
-from src.utils.paste_pic import paste_pic
+from src.utils.paste_pic import paste_pic          # 目前的from src.utils.paste_pic为模型加速文件
 from src.utils.videoio import save_video_with_watermark
 
 try:
