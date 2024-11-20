@@ -2,12 +2,24 @@
 
 # 数字人合成
 
+# 环境：sadtalker
+
+# 队列管理
+
+# 添加返时长
+
+# 不做视频画质增强，直接合成
+
+# 模型加速
+
 from flask import Flask, request, jsonify, url_for
 import os
 import queue
 import threading
-from sadtalker_train import SadTalker
+from sadtalker_train import SadTalker   # 目前的sadtalker_train为模型加速版本
 import uuid
+from pydub import AudioSegment  # 用于获取音频时长
+import time
 
 app = Flask(__name__, static_folder='results')
 sadtalker = SadTalker()  # 初始化
@@ -15,23 +27,52 @@ tasks = {}  # 存储任务状态和结果
 tasks_lock = threading.Lock()  # 用于确保线程安全的锁
 task_queue = queue.Queue()  # 创建一个队列用于管理任务
 
+
+def get_audio_duration(audio_path):     # 获取音频时长
+    audio = AudioSegment.from_file(audio_path)
+    return len(audio) / 1000
+
 def process_video_task(avatarid, image_path, audio_path):
     try:
         infer_status, return_path = sadtalker.test(source_image=image_path, driven_audio=audio_path)
         with tasks_lock:
             if infer_status == 'processed':
-                tasks[avatarid] = {"status": 2, 'remainder': 0, 'path': return_path}  # 更新为待生成URL状态
+                tasks[avatarid]["status"] = 2  # 更新为待生成URL状态
+                tasks[avatarid]["remainder"] = 0
+                tasks[avatarid]["path"] = return_path
             else:
-                tasks[avatarid] = {"status": 1, 'remainder': 180, 'url': ''}  # 更新为处理中状态
+                tasks[avatarid]["status"] = 1  # 仍在处理中
     except Exception as e:
         with tasks_lock:
             tasks[avatarid] = {"status": 5, 'remainder': 0, 'url': str(e)}  # 更新为异常状态
+    finally:
+        # 确保资源释放（待测试）
+        if os.path.exists(image_path):
+            os.remove(image_path)
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
 
-def worker():
+def worker():       # 持续从队列中获取任务并处理
     while True:
         avatarid, image_path, audio_path = task_queue.get()
-        process_video_task(avatarid, image_path, audio_path)
-        task_queue.task_done()
+        try:
+            process_video_task(avatarid, image_path, audio_path)
+        finally:
+            task_queue.task_done()
+            # 确保清理资源(待测试)
+            if os.path.exists(image_path):
+                os.remove(image_path)
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+        
+def countdown_remainder(avatarid, remainder):
+    """ 根据音频时长动态减少任务的 `remainder` """
+    while tasks[avatarid]['status'] == 1 and tasks[avatarid]['remainder'] > 0:
+        time.sleep(1)
+        with tasks_lock:
+            tasks[avatarid]['remainder'] -= 1
+    if tasks[avatarid]['remainder'] < 0:
+        tasks[avatarid]['remainder'] = 0
 
 @app.route('/genvideo', methods=['POST'])
 def generate_video():
@@ -55,23 +96,29 @@ def generate_video():
         # 生成唯一的文件名
         image_filename = str(uuid.uuid4()) + os.path.splitext(facefile.filename)[1]
         audio_filename = str(uuid.uuid4()) + os.path.splitext(voicefile.filename)[1]
-        
         image_path = os.path.join(uploads_dir, image_filename)
         audio_path = os.path.join(uploads_dir, audio_filename)
-        
         facefile.save(image_path)
         voicefile.save(audio_path)
+        
+        # 获取音频时长并计算初始化的剩余时间
+        audio_duration = get_audio_duration(audio_path)
+        remainder = int(audio_duration * 15)  # 时间 1：15
 
-        tasks[avatarid] = {'status': 1, 'remainder': 180, 'url': ''}  # 初始化任务状态
+        tasks[avatarid] = {'status': 1, 'remainder': remainder, 'url': ''}  # 初始化任务状态
 
-        task_queue.put((avatarid, image_path, audio_path))
+        task_queue.put((avatarid, image_path, audio_path))      # 请求任务队列
+
+        # 启动独立线程，更新剩余时长
+        countdown_thread = threading.Thread(target=countdown_remainder, args=(avatarid, remainder))
+        countdown_thread.start()
 
         return jsonify({
             'code': 0,
             'msg': 'OK',
             'data': {
                 'avatarid': avatarid,
-                'remainder': 180
+                'remainder': remainder
             }
         }), 200
     except Exception as e:
