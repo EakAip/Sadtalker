@@ -4,6 +4,11 @@
 
 2.新增显存回收，垃圾清理
 
+后期工作：
+
+1.模型全部改为绝对路径
+2.增加程序保活机制
+
 ## 创建conda环境
 ```python
 conda create -n sadtalker python=3.8
