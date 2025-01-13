@@ -13,6 +13,8 @@
 ## 创建conda环境
 ```python
 conda create -n sadtalker python=3.8
+```
+```python
 conda activate sadtalker
 ```
 
